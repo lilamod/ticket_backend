@@ -20,15 +20,20 @@
     "@types/socket.io": "^3.0.1",
     "bcrypt": "^6.0.0",
     "body-parser": "^2.2.0",
+    "corn": "^0.0.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.19.1",
+    "node-cron": "^4.2.1",
     "nodemailer": "^7.0.9"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "ts-node src/app.ts",
+    "build": "tsc",
+    "start": "node dist/app.js"
   },
   "keywords": [],
   "author": "",
