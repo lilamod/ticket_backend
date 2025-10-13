@@ -4,7 +4,7 @@ config();
 
 export default async (email: string, otp: string) => {
     const transporter = nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
+      host: 'gmail',
       port: 587,
       auth: {
         user: process.env.EMAIL_USER,
