@@ -24,7 +24,10 @@ export const sendOTP = async (req: Request, res: Response) => {
         const otp = await generateOTP();
         const userExist = await User.findOne({email})
         if ( userExist) {
-            await User.updateOne(email, {$set: {otp, otpvalidate: new Date(Date.now() + 600000)}})
+            await User.updateOne(
+                { _id: userExist._id }, 
+                { $set: { otp, otpvalidate: otpExpiry } }
+            );
         }
         await User.create({ email, otp, otpvalidate: new Date(Date.now() + 600000) });
         
