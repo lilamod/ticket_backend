@@ -3,14 +3,19 @@ import { config } from 'dotenv';
 config();
 
 export default async (email: string, otp: string) => {
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      }
-    });
+  const transporter = nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false, // Use TLS
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+    connectionTimeout: 10000, // 10 seconds connection timeout
+    socketTimeout: 10000, // 10 seconds socket timeout
+    logger: true, // Enable logging
+    debug: true, // Enable debug mode
+  });
 
   const mailOptions = {
     from: process.env.EMAIL_USER,
