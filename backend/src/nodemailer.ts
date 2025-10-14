@@ -4,8 +4,8 @@ config();
 
 export default async (email: string, otp: string) => {
     const transporter = nodemailer.createTransport({
-      host: 'gmail',
-      port: 465,
+      host: 'smtp.gmail.com',
+      port: 587,
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
