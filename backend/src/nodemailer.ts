@@ -4,15 +4,12 @@ config();
 
 export default async (email: string, otp: string) => {
   const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    tls: {
-      rejectUnauthorized: false,  // Allow self-signed certs if needed, but secure in production
-    },
+    host: 'smtp.sendgrid.net',
+    port: 587,
+    secure: false,  // Use TLS on port 587
     auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
+      user: 'apikey',
+      pass: process.env.SENDGRID_API_KEY,
     },
     connectionTimeout: 20000,
     socketTimeout: 20000,
@@ -21,7 +18,7 @@ export default async (email: string, otp: string) => {
   });
 
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: 'your-verified-sender@example.com',  // Use a verified sender in SendGrid
     to: email,
     subject: 'Your OTP for Verification',
     html: `<p>Hello,</p><p>Your One-Time Password (OTP) for verification is: <strong>${otp}</strong></p><p>This OTP is valid for a limited time.</p><p>If you did not request this, please ignore this email.</p>`,
