@@ -32,7 +32,7 @@ export const sendOTP = async (req: Request, res: Response) => {
         }
         await User.create({ email, otp, otpvalidate: new Date(Date.now() + 600000) });
         
-        // await sendOTPEmail(email, otp);
+        await sendOTPEmail(email, otp);
         return res.status(200).json({ message: 'OTP sent successfully!' });
     } catch (error) {
         console.log('Error occurred:', error);
