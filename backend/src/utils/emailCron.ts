@@ -1,30 +1,22 @@
 import cron from 'node-cron';
-import nodemailer, { Transporter } from 'nodemailer';  // Import Transporter type for better typing
+import sgMail from '@sendgrid/mail';
 import TicketEvent from '../models/ticketEvent.model';
 import User from '../models/user.model';
 import { config } from 'dotenv';
 config();
-const transporter: Transporter = nodemailer.createTransport({  // Fixed: createTransport (not createTransporter)
-  service: process.env.EMAIL_SERVICE || 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
-// Test transporter on startup (optional, for debugging)
-transporter.verify((error: Error | null, success: boolean) => {  // Fixed: Explicit types for parameters
-  if (error) {
-    console.error('Email transporter error:', error);
-  } else {
-    console.log('Email transporter ready');
-  }
-});
-const OFFLINE_THRESHOLD_HOURS = Number(process.env.OFFLINE_THRESHOLD_HOURS) || 24;
+
+// Set SendGrid API key
+if (!process.env.SENDGRID_API_KEY) {
+  throw new Error('SENDGRID_API_KEY is not set in environment variables');
+}
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+
+const OFFLINE_THRESHOLD_HOURS = Number(process.env.OFFLINE_THRESHOLD_HOURS) || 12;
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 
-// Ensure cron is scheduled only if threshold > 0
 if (OFFLINE_THRESHOLD_HOURS > 0) {
-  cron.schedule('0 6 * * *', async () => {  // 6 AM daily (UTC; adjust timezone if needed)
+  cron.schedule('0 6 * * *', async () => { 
     console.log('Starting offline email cron at 6 AM');
 
     try {
@@ -33,8 +25,8 @@ if (OFFLINE_THRESHOLD_HOURS > 0) {
 
       const offlineUsers = await User.find({
         logging: { $lt: threshold },
-        email: { $exists: true, $ne: null }  // Ensure user has a valid email
-      }).select('email logging _id');  // Optimize: only fetch needed fields
+        email: { $exists: true, $ne: null }  
+      }).select('email logging _id');
 
       if (offlineUsers.length === 0) {
         console.log('No offline users found');
@@ -51,7 +43,7 @@ if (OFFLINE_THRESHOLD_HOURS > 0) {
           })
           .sort({ timestamp: -1 })
           .limit(20)
-          .select('timestamp description ticketId');  // Fetch more details for email
+          .select('timestamp description ticketId'); 
 
           if (missedEvents.length === 0) {
             console.log(`No missed events for ${user.email}`);
@@ -69,7 +61,7 @@ if (OFFLINE_THRESHOLD_HOURS > 0) {
             body += `
               <li>
                 <strong>${event.timestamp.toLocaleString()}</strong><br>
-                ${'No description'} (Ticket: ${event.ticketId || 'N/A'})
+                ${event || 'No description'} (Ticket: ${event.ticketId || 'N/A'})
               </li>
             `;
           });
@@ -80,17 +72,16 @@ if (OFFLINE_THRESHOLD_HOURS > 0) {
             <p>Best,<br>Your Team</p>
           `;
 
-          const mailOptions = {
-            from: `"Ticket System" <${process.env.EMAIL_USER}>`,  // Nicer from name
+          const msg = {
+            from: process.env.EMAIL_FROM as string, 
             to: user.email,
             subject,
             html: body,
           };
 
-          await transporter.sendMail(mailOptions);
+          await sgMail.send(msg);
           console.log(`Email sent to ${user.email} for ${missedEvents.length} events`);
 
-          // Mark events as sent to this user
           await TicketEvent.updateMany(
             { _id: { $in: missedEvents.map(e => e._id) } },
             { $addToSet: { sentTo: user._id } }
@@ -98,14 +89,12 @@ if (OFFLINE_THRESHOLD_HOURS > 0) {
 
         } catch (userError) {
           console.error(`Error processing user ${user.email}:`, userError);
-          // Don't halt the loop for one user
         }
       }
 
       console.log('Offline email cron completed successfully');
     } catch (error) {
       console.error('Cron job error:', error);
-      // Optional: Log to a service like Sentry for monitoring
     }
   });
 
@@ -114,4 +103,4 @@ if (OFFLINE_THRESHOLD_HOURS > 0) {
   console.log('Cron not scheduled: OFFLINE_THRESHOLD_HOURS is 0 or invalid');
 }
 
-export { transporter };
+export { sgMail as transporter };  

@@ -1,28 +1,26 @@
-import nodemailer from 'nodemailer';
+import sgMail from '@sendgrid/mail';
 import { config } from 'dotenv';
 config();
 
-export default async function sendOtpEmail(email: string, otp: string, retries = 3): Promise<void> {
-  const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465, // SSL port
-    secure: true, // true for SSL
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-    connectionTimeout: 20000, // 20 seconds
-    socketTimeout: 20000, // 20 seconds
-    tls: {
-      rejectUnauthorized: false,
-    },
-    logger: true,
-    debug: true,
-  });
+// Ensure API key is set
+if (!process.env.SENDGRID_API_KEY) {
+  throw new Error('SENDGRID_API_KEY is not set in environment variables');
+}
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
+export default async function sendOtpEmail(
+  email: string,
+  otp: string,
+  retries = 3
+): Promise<void> {
+  // Validate inputs
+  if (!email || !otp) {
+    throw new Error('Email and OTP are required');
+  }
+console.log("email", email)
+  const msg = {
     to: email,
+    from: process.env.EMAIL_FROM as string,
     subject: 'Your OTP for Verification',
     html: `
       <p>Hello,</p>
@@ -34,19 +32,23 @@ export default async function sendOtpEmail(email: string, otp: string, retries =
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      await transporter.sendMail(mailOptions);
-      console.log('✅ OTP email sent successfully!');
+      const result = await sgMail.send(msg);
+      console.log('✅ OTP email sent successfully!', result);
       return;
-    } catch (err: unknown) {
-      const error = err as Error;
-      console.error(`❌ Error sending OTP email (attempt ${attempt}/${retries}): ${error.message}`);
+    } catch (err: any) {
+      console.error(
+        `❌ Error sending OTP email (attempt ${attempt}/${retries}):`,
+        err.response?.body || err.message
+      );
 
       if (attempt === retries) {
-        throw new Error(`Failed to send OTP email after ${retries} attempts: ${error.message}`);
+        throw new Error(
+          `Failed to send OTP email after ${retries} attempts: ${err.message}`
+        );
       }
 
-      // Exponential backoff before retry
-      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      // Exponential backoff
+      await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
     }
   }
 }

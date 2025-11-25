@@ -5,7 +5,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import Token from "../models/token.model"
 interface userRequest extends Request {
-    user?: { id: string; email: string };
+    user?: { userId: string; email: string };
   }
 
 const generateOTP = async (len: number = 6): Promise<string> => {
@@ -22,6 +22,7 @@ export const sendOTP = async (req: Request, res: Response) => {
     try {
         const { email } = req.body;
         const otp = await generateOTP();
+        console.log("otp", otp)
         const userExist = await User.findOne({email})
         if ( userExist) {
             await User.updateOne(
@@ -63,7 +64,7 @@ export const verifyOTP = async (req: Request, res: Response) => {
                 user: userExist._id,
                 createdAt: new Date()
               });
-              return res.json({ token });
+              return res.json({ data:{token} });
         } else {
             return res.status(400).json({ message: 'OTP is not valid' });
         }
@@ -76,12 +77,12 @@ export const verifyOTP = async (req: Request, res: Response) => {
 export const userDetails = async (req: userRequest, res: Response) => {
     try {
         const userdetail = req.user; 
-    const userId = userdetail?.id;
+    const userId = userdetail?.userId;
       const user = await User.findById({_id: userId}).select('-otp -otpvalidate ');  
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
       }
-      res.json({ user: { id: user.id.toString(), email: user.email } });
+      res.json({data:{ user: { id: user.id.toString(), email: user.email }} });
     } catch (error) {
       console.error('Get me error:', error);
       res.status(500).json({ message: 'Server error' });
@@ -92,7 +93,7 @@ export const userDetails = async (req: userRequest, res: Response) => {
   export const addPassword  = async (req: userRequest, res: Response) => {
     const { password } = req.body;
     const userdetail = req.user; 
-    const userId = userdetail?.id;
+    const userId = userdetail?.userId;
     const user = await User.findById({_id: userId});
     if(user) {
         const hashedPassword:string = process.env.SUPERUSER_HASH || ""; // Or user.superUser PasswordHash
@@ -111,7 +112,7 @@ export const userDetails = async (req: userRequest, res: Response) => {
 
     const { password } = req.body;
     const userdetail = req.user; 
-    const userId = userdetail?.id;
+    const userId = userdetail?.userId;
     const user = await User.findById({_id: userId});
     if(user) {     
         await User.updateOne({_id: user?._id},{$set: {superAdmin: false,}});

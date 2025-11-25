@@ -1,33 +1,29 @@
-// controllers/ticketController.ts (or .js)
 import { Response, Request } from 'express';
 import Ticket from '../models/ticket.model';
 import TicketEvent from '../models/ticketEvent.model';
-import User from '../models/user.model';  // FIXED: Static import
-
-// Extend Request for io (if not in global declaration)
+import User from '../models/user.model';  
 interface TicketRequest extends Request {
   user?: { id: string; email: string };
-  io?: any;  // Socket.io Server
+  io?: any;  
 }
 
-// Helper: Transform ticket for frontend (handle _id → id, timestamps)
 const transformTicket = (ticket: any) => ({
   id: ticket._id.toString(),
   projectId: ticket.project.toString(),
   description: ticket.description,
   status: ticket.status,
-  createdBy: ticket.createdBy ? ticket.createdBy.toString() : undefined,  // FIXED: Added undefined
+  createdBy: ticket.createdBy ? ticket.createdBy.toString() : undefined,  
   updatedBy: ticket.updatedBy ? ticket.updatedBy.toString() : undefined,
   createdAt: ticket.createdAt ? new Date(ticket.createdAt).getTime() : undefined,
   updatedAt: ticket.updatedAt ? new Date(ticket.updatedAt).getTime() : undefined,
 });
 
-export const createTicket = async (req: TicketRequest, res: Response) => {  // Use extended type
+export const createTicket = async (req: TicketRequest, res: Response) => { 
   console.log('Creating ticket for project:', req.body.projectId);
 
   try {
     const { projectId, description, status = 'todo' } = req.body;
-    const user = req.user;  // Now typed
+    const user = req.user;  
     const userId = user?.id;
 
     if (!userId) {
@@ -39,14 +35,13 @@ export const createTicket = async (req: TicketRequest, res: Response) => {  // U
     }
 
     const newTicket = await Ticket.create({ 
-      project: projectId,  // ObjectId (frontend sends string; Mongoose converts)
+      project: projectId,  
       description,
       status,
       createdBy: userId,
-      updatedBy: userId  // Initial
+      updatedBy: userId  
     });
 
-    // NEW: Save Event for activity feed and offline emails
     const event = await TicketEvent.create({
       type: 'create',
       ticketId: newTicket._id,
@@ -55,18 +50,16 @@ export const createTicket = async (req: TicketRequest, res: Response) => {  // U
       details: { description, status }
     });
 
-    // NEW: Emit Socket for active users (project room)
-    const io = req.io;  // Now typed (from middleware)
+    const io = req.io;
     if (io) {
       io.to(`project-${projectId}`).emit('ticketCreated', {
         eventId: event.id.toString(),
         ticket: transformTicket(newTicket),
-        user: user?.email,  // FIXED: Safe and typed
+        user: user?.email,  
         message: `New ticket "${description}" created by ${user?.email || 'Unknown'}`
       });
     }
 
-    // Update user lastActivity
     await User.findByIdAndUpdate(userId, { logging: new Date() });
 
     res.status(201).json({ data: transformTicket(newTicket) });
@@ -85,13 +78,12 @@ export const listTicket = async (req: Request, res: Response) => {
     }
 
     const tickets = await Ticket.find({ project: projectId })
-      .populate('createdBy', 'email')  // Optional: Get user email (if ref)
+      .populate('createdBy', 'email')  
       .populate('updatedBy', 'email')
-      .lean();  // Faster plain objects
+      .lean();  
 
     const count = await Ticket.countDocuments({ project: projectId });
 
-    // Transform for frontend
     const transformedTickets = tickets.map(transformTicket);
 
     res.status(200).json({
@@ -104,10 +96,10 @@ export const listTicket = async (req: Request, res: Response) => {
   }
 };
 
-export const updateTicket = async (req: TicketRequest, res: Response) => {  // Extended type
+export const updateTicket = async (req: TicketRequest, res: Response) => {  
   const { id } = req.params;
-  const updates = req.body;  // e.g., { status: 'in-progress' }
-  const user = req.user;  // Typed
+  const updates = req.body;
+  const user = req.user;  
   const userId = user?.id;
 
   if (!id) {
