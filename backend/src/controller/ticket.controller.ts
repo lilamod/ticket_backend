@@ -3,7 +3,7 @@ import Ticket from '../models/ticket.model';
 import TicketEvent from '../models/ticketEvent.model';
 import User from '../models/user.model';  
 interface TicketRequest extends Request {
-  user?: { id: string; email: string };
+  user?: {userId: string; email: string  };
   io?: any;  
 }
 
@@ -12,19 +12,20 @@ const transformTicket = (ticket: any) => ({
   projectId: ticket.project.toString(),
   description: ticket.description,
   status: ticket.status,
-  createdBy: ticket.createdBy ? ticket.createdBy.toString() : undefined,  
-  updatedBy: ticket.updatedBy ? ticket.updatedBy.toString() : undefined,
+  createdBy: ticket.createdBy ? ticket.createdBy : undefined,  
+  updatedBy: ticket.updatedBy ? ticket.updatedBy : undefined,
   createdAt: ticket.createdAt ? new Date(ticket.createdAt).getTime() : undefined,
   updatedAt: ticket.updatedAt ? new Date(ticket.updatedAt).getTime() : undefined,
+  user: ticket.user
 });
 
 export const createTicket = async (req: TicketRequest, res: Response) => { 
-  console.log('Creating ticket for project:', req.body.projectId);
+  console.log('Creating ticket for project:', req.body);
 
   try {
     const { projectId, description, status = 'todo' } = req.body;
     const user = req.user;  
-    const userId = user?.id;
+    const userId = user?.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
@@ -39,7 +40,8 @@ export const createTicket = async (req: TicketRequest, res: Response) => {
       description,
       status,
       createdBy: userId,
-      updatedBy: userId  
+      updatedBy: userId ,
+      user: userId
     });
 
     const event = await TicketEvent.create({
@@ -69,19 +71,21 @@ export const createTicket = async (req: TicketRequest, res: Response) => {
   }
 };
 
-export const listTicket = async (req: Request, res: Response) => {
+export const listTicket = async (req: TicketRequest, res: Response) => {
   try {
     const { projectId } = req.query;
 
+    const user = req.user;  
+    const userId = user?.userId;
     if (!projectId || typeof projectId !== 'string') {
       return res.status(400).json({ error: 'projectId is required' });
     }
 
     const tickets = await Ticket.find({ project: projectId })
-      .populate('createdBy', 'email')  
-      .populate('updatedBy', 'email')
-      .lean();  
-
+      .populate({path:'createdBy', select: 'email'})
+      .populate({path: 'updatedBy', select: 'email'})
+      .exec();  
+      
     const count = await Ticket.countDocuments({ project: projectId });
 
     const transformedTickets = tickets.map(transformTicket);
@@ -100,7 +104,7 @@ export const updateTicket = async (req: TicketRequest, res: Response) => {
   const { id } = req.params;
   const updates = req.body;
   const user = req.user;  
-  const userId = user?.id;
+  const userId = user?.userId;
 
   if (!id) {
     return res.status(400).json({ message: 'Ticket ID is required' });
@@ -149,7 +153,7 @@ export const updateTicket = async (req: TicketRequest, res: Response) => {
       io.to(`project-${ticket.project}`).emit('ticketUpdated', {
         eventId: event.id.toString(),
         ticket: transformTicket(ticket),
-        user: user?.email,  // FIXED: Typed and safe
+        user: userId,  // FIXED: Typed and safe
         message: `Ticket "${ticket.description}" updated by ${user?.email || 'Unknown'} (Status: ${updates.status})`
       });
     }
@@ -167,7 +171,7 @@ export const updateTicket = async (req: TicketRequest, res: Response) => {
 export const deleteTicket = async (req: TicketRequest, res: Response) => {  // Extended type
   const { id } = req.params;
   const user = req.user;  // Typed
-  const userId = user?.id;
+  const userId = user?.userId;
 
   if (!id) {
     return res.status(400).json({ message: 'Ticket ID is required' });

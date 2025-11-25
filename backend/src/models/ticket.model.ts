@@ -9,6 +9,7 @@ interface Ticket extends Document {
     status: TicketStatus;
     createdBy?: string;
     updatedBy?: string;
+    user?:string;
 }
 
 const ticketSchema: Schema<Ticket> = new Schema(
@@ -29,10 +30,16 @@ const ticketSchema: Schema<Ticket> = new Schema(
           required: true,
         },
         createdBy: {
-          type: String,
+          type: Schema.Types.ObjectId,
+          ref: 'User',
         },
         updatedBy: {
-          type: String,
+          type: Schema.Types.ObjectId,
+          ref: 'User',
+        },
+        user: {
+          type: Schema.Types.ObjectId,
+          ref: 'User',
         },
       },
       {

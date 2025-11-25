@@ -32,7 +32,7 @@ export const sendOTP = async (req: Request, res: Response) => {
         }
         await User.create({ email, otp, otpvalidate: new Date(Date.now() + 600000) });
         
-        await sendOTPEmail(email, otp);
+        // await sendOTPEmail(email, otp);
         return res.status(200).json({ message: 'OTP sent successfully!' });
     } catch (error) {
         console.log('Error occurred:', error);
@@ -96,11 +96,12 @@ export const userDetails = async (req: userRequest, res: Response) => {
     const userId = userdetail?.userId;
     const user = await User.findById({_id: userId});
     if(user) {
-        const hashedPassword:string = process.env.SUPERUSER_HASH || ""; // Or user.superUser PasswordHash
-        const isValid = await bcrypt.compare(password, hashedPassword);
-        if (!isValid) return res.status(401).json({ error: 'Invalid password' });
+    const saltRounds = 10;
+        const salt = await bcrypt.genSalt(saltRounds);
+            const hashedPassword = await bcrypt.hash(password, salt);
       
-        await User.updateOne({_id: user?._id},{$set: {superAdmin: true, password: hashedPassword}});
+        const result = await User.updateOne({_id: user?._id},{$set: {superAdmin: true, password: hashedPassword}});
+        console.log("result", result)
         res.json({ success: true });   
     }else {
         return res.json({ message: "Not data found"});
